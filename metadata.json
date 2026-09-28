@@ -1,0 +1,6 @@
+{
+  "name": "SynCura AI — Autonomous Community Health Coordination Agent",
+  "description": "A platform that helps ASHA workers in rural India coordinate patient care, teleconsultations, blood donations, and community health.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

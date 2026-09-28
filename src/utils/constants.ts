@@ -1,0 +1,2 @@
+// Universal generic placeholder avatar (gray circular silhouette icon)
+export const DEFAULT_AVATAR = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="50" fill="%23E2E8F0"/><circle cx="50" cy="40" r="18" fill="%2394A3B8"/><path d="M50 62C32 62 18 76 18 94C18 97 20 100 23 100H77C80 100 82 97 82 94C82 76 68 62 50 62Z" fill="%2394A3B8"/></svg>`;

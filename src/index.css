@@ -1,0 +1,14 @@
+@import "tailwindcss";
+
+.lang-ml {
+  line-height: 1.6;
+}
+
+.lang-ml h1, 
+.lang-ml h2, 
+.lang-ml h3, 
+.lang-ml h4, 
+.lang-ml button, 
+.lang-ml label {
+  line-height: 1.5;
+}

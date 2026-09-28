@@ -1,0 +1,6 @@
+{
+  "simpleBrowser.opener.enabled": false,
+  "livePreview.defaultPreviewPath": "",
+  "livePreview.useExternalPreview": true,
+  "livePreview.customExternalBrowser": "chrome"
+}
