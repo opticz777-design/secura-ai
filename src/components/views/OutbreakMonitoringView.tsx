@@ -27,18 +27,35 @@ import { OutbreakAlert, AlertActivityLog } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
 import { useRole, USERS_BY_ROLE } from '../../context/RoleContext';
 import { HEALTH_CENTRES } from '../../config/healthCentres';
+import { GoogleMap, useJsApiLoader, Marker, InfoWindow } from '@react-google-maps/api';
 
-const VILLAGE_COORDINATES: Record<string, {x: number, y: number}> = {
-  [HEALTH_CENTRES[0].name]: { x: 50, y: 50 },
-  [HEALTH_CENTRES[1].name]: { x: 30, y: 30 },
-  [HEALTH_CENTRES[2].name]: { x: 70, y: 40 },
-  [HEALTH_CENTRES[3].name]: { x: 45, y: 65 },
-  [HEALTH_CENTRES[4].name]: { x: 60, y: 75 },
-  [HEALTH_CENTRES[5].name]: { x: 25, y: 60 },
-  [HEALTH_CENTRES[6].name]: { x: 80, y: 20 }
+const VILLAGE_COORDINATES: Record<string, {lat: number, lng: number}> = {
+  'Chirakkal': { lat: 11.9153, lng: 75.3619 },
+  'Pappinisseri': { lat: 11.9529, lng: 75.3592 },
+  'Azhikode': { lat: 11.9203, lng: 75.3361 },
+  'Pallikunnu': { lat: 11.8928, lng: 75.3660 },
+  'Valapattanam': { lat: 11.9272, lng: 75.3464 },
+  'Puzhathi': { lat: 11.8983, lng: 75.3853 },
+  'Kalliasseri': { lat: 11.9712, lng: 75.3616 }
+};
+
+const getVillageCoordinates = (locationName?: string) => {
+  if (!locationName) return undefined;
+  const normalized = locationName.trim().toLowerCase();
+  for (const [key, coords] of Object.entries(VILLAGE_COORDINATES)) {
+    if (key.toLowerCase() === normalized) {
+      return coords;
+    }
+  }
+  return undefined;
 };
 
 export const OutbreakMonitoringView: React.FC = () => {
+  const { isLoaded, loadError } = useJsApiLoader({
+    id: 'google-map-script',
+    googleMapsApiKey: (import.meta as any).env.VITE_GOOGLE_MAPS_API_KEY || ''
+  });
+
   const { t } = useLanguage();
   const { role } = useRole();
   const isDoctor = role === 'DOCTOR';
@@ -149,7 +166,8 @@ export const OutbreakMonitoringView: React.FC = () => {
         a.disease.toLowerCase().includes(searchQuery.toLowerCase()) ||
         (a.symptoms && a.symptoms.some((s: any) => s.name.toLowerCase().includes(searchQuery.toLowerCase())));
       
-      const matchesRisk = riskFilter === 'All' || a.riskLevel === riskFilter;
+      const alertRisk = a.caseCount >= 6 ? 'High' : a.caseCount >= 3 ? 'Moderate' : 'Low';
+      const matchesRisk = riskFilter === 'All' || alertRisk === riskFilter;
       const matchesStatus = statusFilter === 'All' || a.status === statusFilter;
 
       return matchesSearch && matchesRisk && matchesStatus;
@@ -226,6 +244,7 @@ export const OutbreakMonitoringView: React.FC = () => {
       });
 
       if (res.ok) {
+        const json = await res.json();
         showToast(`New outbreak cluster reported in ${newVillage}!`);
         setIsNewClusterModalOpen(false);
         setNewVillage('');
@@ -233,6 +252,10 @@ export const OutbreakMonitoringView: React.FC = () => {
         setNewCases(3);
         setNewSymptoms('');
         fetchData(timeRange, false);
+        if (json.success && json.data && json.data.id) {
+          setSelectedClusterId(json.data.id);
+          setActiveMapPopupId(json.data.id);
+        }
       } else {
         showToast('Unable to report the cluster.');
       }
@@ -268,13 +291,12 @@ export const OutbreakMonitoringView: React.FC = () => {
     );
   };
 
-  const getCoordinates = (location: string, alertIndex: number) => {
-    if (VILLAGE_COORDINATES[location]) {
-      return VILLAGE_COORDINATES[location];
+  const mapCenter = useMemo(() => {
+    if (selectedCluster && getVillageCoordinates(selectedCluster.location)) {
+      return getVillageCoordinates(selectedCluster.location);
     }
-    // Simple deterministic fallback for map scattering
-    return { x: 20 + ((alertIndex * 15) % 60), y: 20 + ((alertIndex * 25) % 60) };
-  };
+    return { lat: 11.8745, lng: 75.3704 };
+  }, [selectedCluster]);
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-12 animate-fade-in">
@@ -413,104 +435,125 @@ export const OutbreakMonitoringView: React.FC = () => {
             </span>
           </div>
 
-          <div 
-            className="relative h-96 bg-slate-950 rounded-2xl border border-slate-800 shadow-inner group"
-            onClick={() => setActiveMapPopupId(null)}
-          >
-            <div className="absolute inset-0 rounded-2xl overflow-hidden">
-              <div 
-                className="absolute inset-0 opacity-30"
-                style={{
-                  backgroundImage: `radial-gradient(#64748b 1px, transparent 1px), radial-gradient(#64748b 1px, #020617 1px)`,
-                  backgroundSize: `24px 24px`
-                }}
-              />
-              <svg className="absolute inset-0 w-full h-full text-slate-800 opacity-80" fill="none" stroke="currentColor">
-                <path d="M -20 120 Q 180 40 320 220 T 700 280" strokeWidth="8" strokeLinecap="round" className="text-teal-950/80 stroke-teal-900" />
-                <path d="M 120 0 Q 150 220 380 380" strokeWidth="4" strokeDasharray="6 6" className="text-slate-700" />
-              </svg>
-            </div>
-
-            {alerts.map((alert, index) => {
-              const isSelected = selectedClusterId === alert.id;
-              const isPopupActive = activeMapPopupId === alert.id;
-              const coords = getCoordinates(alert.location, index);
-
-              let markerBg = 'bg-rose-600 border-rose-400 text-white';
-              let ringColor = 'ring-rose-500/40';
-              let pulseColor = 'bg-rose-500';
-              let markerSize = 'w-10 h-10 text-sm';
-
-              if (alert.riskLevel === 'Medium') {
-                markerBg = 'bg-amber-500 border-amber-300 text-slate-950';
-                ringColor = 'ring-amber-500/40';
-                pulseColor = 'bg-amber-400';
-                markerSize = 'w-9 h-9 text-xs';
-              } else if (alert.riskLevel === 'Low') {
-                markerBg = 'bg-yellow-400 border-yellow-200 text-slate-950';
-                ringColor = 'ring-yellow-400/40';
-                pulseColor = 'bg-yellow-300';
-                markerSize = 'w-8 h-8 text-xs';
-              }
-
-              return (
-                <div 
-                  key={alert.id}
-                  className={`absolute transform -translate-x-1/2 -translate-y-1/2 group cursor-pointer transition-all ${isPopupActive ? 'z-50' : 'z-20'}`}
-                  style={{ left: `${coords.x}%`, top: `${coords.y}%` }}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setSelectedClusterId(alert.id);
-                    setActiveMapPopupId(prev => prev === alert.id ? null : alert.id);
-                  }}
-                >
-                  <div className="relative flex flex-col items-center">
-                    {alert.status === 'Active' && (
-                      <span className={`animate-ping absolute inline-flex h-12 w-12 rounded-full opacity-75 ${pulseColor}`} />
-                    )}
-                    <div className={`${markerSize} ${markerBg} rounded-full font-black flex items-center justify-center shadow-xl border-2 ring-4 ${ringColor} transition-transform group-hover:scale-110 ${
-                      isSelected ? 'scale-125 ring-8 ring-teal-400/50' : ''
-                    }`}>
-                      {alert.caseCount}
-                    </div>
-                    <div className={`text-[10px] font-bold px-2 py-0.5 rounded mt-1 shadow-md whitespace-nowrap transition-colors ${
-                      isSelected ? 'bg-teal-600 text-white font-black' : 'bg-slate-900/90 text-slate-200 border border-slate-700'
-                    }`}>
-                      {alert.location}
-                    </div>
-
-                    {isPopupActive && (
-                      <div className="absolute bottom-full mb-2 bg-slate-900/95 text-white p-3.5 rounded-2xl border border-slate-700 shadow-2xl w-56 z-30 animate-slide-up text-xs space-y-2">
-                        <div className="flex items-center justify-between border-b border-slate-800 pb-1.5">
-                          <strong className="font-bold text-teal-300 text-xs">{alert.location}</strong>
-                          <span className={`px-2 py-0.5 rounded text-[9px] font-bold ${
-                            alert.riskLevel === 'High' ? 'bg-rose-900/80 text-rose-300 border border-rose-700' :
-                            alert.riskLevel === 'Medium' ? 'bg-amber-900/80 text-amber-300 border border-amber-700' :
-                            'bg-emerald-900/80 text-emerald-300 border border-emerald-700'
-                          }`}>
-                            {alert.riskLevel} Risk
-                          </span>
-                        </div>
-                        <div className="text-slate-300 text-[11px] font-medium leading-tight">
-                          <strong>{alert.disease}</strong> ({alert.caseCount} active cases)
-                        </div>
-                        {alert.symptoms && alert.symptoms.length > 0 && (
-                          <div className="text-[10px] text-slate-400">
-                            Symptoms: {alert.symptoms.map((s: any) => s.name).join(', ')}
-                          </div>
-                        )}
-                        <div className="flex items-center justify-between pt-1 border-t border-slate-800">
-                          <span className="text-[10px] font-bold text-amber-400 flex items-center gap-1">
-                            {alert.trendPercentage && alert.trendPercentage >= 0 ? <TrendingUp className="w-3 h-3 text-rose-400" /> : <TrendingDown className="w-3 h-3 text-emerald-400" />}
-                            <span>{alert.trendPercentage && alert.trendPercentage > 0 ? `+${alert.trendPercentage}%` : alert.trendPercentage === 0 ? '0%' : `${alert.trendPercentage}%`}</span>
-                          </span>
-                        </div>
-                      </div>
-                    )}
-                  </div>
+          <div className="relative h-96 bg-slate-100 rounded-2xl border border-slate-200 overflow-hidden shadow-inner flex items-center justify-center">
+            {!isLoaded ? (
+              <div className="text-slate-500 font-medium text-sm flex flex-col items-center gap-2">
+                <div className="w-8 h-8 border-4 border-slate-300 border-t-rose-600 rounded-full animate-spin" />
+                Loading Google Maps...
+              </div>
+            ) : loadError || !(import.meta as any).env.VITE_GOOGLE_MAPS_API_KEY ? (
+              <div className="text-slate-500 font-medium text-sm text-center px-6">
+                Google Maps is unavailable. Please configure a valid Google Maps API key in your .env file.
+              </div>
+            ) : alerts.length === 0 ? (
+              <GoogleMap
+                mapContainerStyle={{ width: '100%', height: '100%' }}
+                center={{ lat: 11.8745, lng: 75.3704 }}
+                zoom={12}
+                options={{ mapTypeControl: true, streetViewControl: false }}
+              >
+                <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur-sm px-4 py-2 rounded-full shadow-md border border-slate-200 text-sm font-semibold text-slate-700 z-10">
+                  No active outbreak clusters are currently recorded.
                 </div>
-              );
-            })}
+              </GoogleMap>
+            ) : (
+              <GoogleMap
+                mapContainerStyle={{ width: '100%', height: '100%' }}
+                center={mapCenter}
+                zoom={12}
+                options={{ mapTypeControl: true, streetViewControl: false }}
+                onClick={() => setActiveMapPopupId(null)}
+              >
+                {(() => {
+                  const locationCounts: Record<string, number> = {};
+                  alerts.forEach(a => {
+                    if (getVillageCoordinates(a.location)) {
+                      locationCounts[a.location] = (locationCounts[a.location] || 0) + 1;
+                    }
+                  });
+                  const locationIndices: Record<string, number> = {};
+
+                  return alerts.map((alert) => {
+                    const baseCoords = getVillageCoordinates(alert.location);
+                    if (!baseCoords) return null;
+
+                    const totalAtLocation = locationCounts[alert.location];
+                    const indexAtLocation = locationIndices[alert.location] || 0;
+                    locationIndices[alert.location] = indexAtLocation + 1;
+
+                    let coords = baseCoords;
+                    if (totalAtLocation > 1) {
+                      const radius = 0.0003;
+                      const angle = (indexAtLocation / totalAtLocation) * Math.PI * 2;
+                      coords = {
+                        lat: baseCoords.lat + radius * Math.cos(angle),
+                        lng: baseCoords.lng + radius * Math.sin(angle)
+                      };
+                    }
+
+                    let fillColor = '#EAB308';
+                    let riskLabel = 'Low';
+                    let badgeClass = 'bg-yellow-100 text-yellow-700';
+                    if (alert.caseCount >= 6) {
+                      fillColor = '#EF4444';
+                      riskLabel = 'High';
+                      badgeClass = 'bg-rose-100 text-rose-700';
+                    } else if (alert.caseCount >= 3) {
+                      fillColor = '#F97316';
+                      riskLabel = 'Moderate';
+                      badgeClass = 'bg-orange-100 text-orange-700';
+                    }
+
+                    const isSelected = alert.id === selectedClusterId;
+                    
+                    const svgMarker = isSelected
+                      ? `<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"><circle cx="24" cy="24" r="22" fill="${fillColor}" fill-opacity="0.2" /><circle cx="24" cy="24" r="16" fill="${fillColor}" fill-opacity="0.4" /><circle cx="24" cy="24" r="10" fill="${fillColor}" stroke="#ffffff" stroke-width="3" /></svg>`
+                      : `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><circle cx="16" cy="16" r="14" fill="${fillColor}" fill-opacity="0.3" /><circle cx="16" cy="16" r="8" fill="${fillColor}" stroke="#ffffff" stroke-width="2" /></svg>`;
+
+                    const icon = {
+                      url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svgMarker)}`,
+                      anchor: window.google ? new window.google.maps.Point(isSelected ? 24 : 16, isSelected ? 24 : 16) : undefined
+                    };
+
+                    const isPopupActive = activeMapPopupId === alert.id;
+
+                    return (
+                      <Marker
+                        key={alert.id}
+                        position={coords}
+                        icon={icon}
+                        onClick={() => {
+                          setSelectedClusterId(alert.id);
+                          setActiveMapPopupId(alert.id);
+                        }}
+                      >
+                        {isPopupActive && (
+                          <InfoWindow
+                            position={coords}
+                            onCloseClick={() => setActiveMapPopupId(null)}
+                          >
+                            <div className="p-1 max-w-[200px] text-slate-800 space-y-1">
+                              <strong className="block text-sm text-slate-900 border-b border-slate-200 pb-1 mb-1">{alert.location}</strong>
+                              <div className="text-xs">
+                                <span className="font-semibold text-slate-700">{alert.disease}</span>
+                                <div className="text-rose-600 font-bold">{alert.caseCount} active cases</div>
+                              </div>
+                              <div className="text-xs pt-1">
+                                <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${badgeClass}`}>
+                                  {riskLabel} Risk
+                                </span>
+                              </div>
+                              <div className="text-[10px] text-slate-500 mt-1">Status: <span className="font-semibold text-slate-700">{alert.status}</span></div>
+                              <div className="text-[10px] text-slate-500">First detected: {new Date(alert.createdAt || Date.now()).toLocaleDateString()}</div>
+                            </div>
+                          </InfoWindow>
+                        )}
+                      </Marker>
+                    );
+                  });
+                })()}
+              </GoogleMap>
+            )}
           </div>
 
           <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200 flex flex-wrap items-center justify-between gap-3 text-xs">
@@ -519,15 +562,15 @@ export const OutbreakMonitoringView: React.FC = () => {
             </span>
             <div className="flex items-center gap-4 text-xs font-semibold">
               <div className="flex items-center gap-1.5">
-                <span className="w-3.5 h-3.5 rounded-full bg-rose-600 border border-rose-300 shadow-2xs" />
+                <span className="w-3.5 h-3.5 rounded-full shadow-2xs" style={{ backgroundColor: '#EF4444', border: '1px solid #FCA5A5' }} />
                 <span className="text-slate-800">{t('outbreak.riskHigh', 'High Risk')} (&ge; 6 cases)</span>
               </div>
               <div className="flex items-center gap-1.5">
-                <span className="w-3.5 h-3.5 rounded-full bg-amber-500 border border-amber-300 shadow-2xs" />
+                <span className="w-3.5 h-3.5 rounded-full shadow-2xs" style={{ backgroundColor: '#F97316', border: '1px solid #FDBA74' }} />
                 <span className="text-slate-800">{t('outbreak.riskMedium', 'Moderate Risk')} (3-5 cases)</span>
               </div>
               <div className="flex items-center gap-1.5">
-                <span className="w-3.5 h-3.5 rounded-full bg-yellow-400 border border-yellow-200 shadow-2xs" />
+                <span className="w-3.5 h-3.5 rounded-full shadow-2xs" style={{ backgroundColor: '#EAB308', border: '1px solid #FDE047' }} />
                 <span className="text-slate-800">{t('outbreak.riskLow', 'Low Risk')} (1-2 cases)</span>
               </div>
             </div>
@@ -544,11 +587,11 @@ export const OutbreakMonitoringView: React.FC = () => {
                     <h3 className="font-bold text-slate-900 text-lg">{selectedCluster.location}</h3>
                   </div>
                   <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold border ${
-                    selectedCluster.riskLevel === 'High' ? 'bg-rose-100 text-rose-800 border-rose-300' :
-                    selectedCluster.riskLevel === 'Medium' ? 'bg-amber-100 text-amber-800 border-amber-300' :
-                    'bg-emerald-100 text-emerald-800 border-emerald-300'
+                    selectedCluster.caseCount >= 6 ? 'bg-rose-100 text-rose-800 border-rose-300' :
+                    selectedCluster.caseCount >= 3 ? 'bg-orange-100 text-orange-800 border-orange-300' :
+                    'bg-yellow-100 text-yellow-800 border-yellow-300'
                   }`}>
-                    {selectedCluster.riskLevel} {t('outbreak.colRisk', 'Risk')}
+                    {selectedCluster.caseCount >= 6 ? 'High' : selectedCluster.caseCount >= 3 ? 'Moderate' : 'Low'} {t('outbreak.colRisk', 'Risk')}
                   </span>
                 </div>
                 <div className="text-xs text-slate-600 font-semibold flex items-center justify-between">
@@ -691,7 +734,7 @@ export const OutbreakMonitoringView: React.FC = () => {
             >
               <option value="All">{t('outbreak.allRisks', 'All Risk Levels')}</option>
               <option value="High">High Risk</option>
-              <option value="Medium">Medium Risk</option>
+              <option value="Moderate">Moderate Risk</option>
               <option value="Low">Low Risk</option>
             </select>
 
@@ -738,11 +781,11 @@ export const OutbreakMonitoringView: React.FC = () => {
                     </td>
                     <td className="py-3.5 px-4">
                       <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold border ${
-                        alert.riskLevel === 'High' ? 'bg-rose-100 text-rose-800 border-rose-300' :
-                        alert.riskLevel === 'Medium' ? 'bg-amber-100 text-amber-800 border-amber-300' :
-                        'bg-emerald-100 text-emerald-800 border-emerald-300'
+                        alert.caseCount >= 6 ? 'bg-rose-100 text-rose-800 border-rose-300' :
+                        alert.caseCount >= 3 ? 'bg-orange-100 text-orange-800 border-orange-300' :
+                        'bg-yellow-100 text-yellow-800 border-yellow-300'
                       }`}>
-                        {alert.riskLevel} Risk
+                        {alert.caseCount >= 6 ? 'High' : alert.caseCount >= 3 ? 'Moderate' : 'Low'} Risk
                       </span>
                     </td>
                     <td className="py-3.5 px-4 font-bold text-slate-900">

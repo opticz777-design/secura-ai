@@ -60,6 +60,7 @@ export const AwarenessContentView: React.FC<AwarenessContentViewProps> = ({
 
   // Audio Playback State
   const [isPlayingAudio, setIsPlayingAudio] = useState<boolean>(false);
+  const [isFetchingAudio, setIsFetchingAudio] = useState<boolean>(false);
   const [audioProgress, setAudioProgress] = useState<number>(0);
   const audioQueueRef = React.useRef<string[]>([]);
   const currentAudioRef = React.useRef<HTMLAudioElement | null>(null);
@@ -70,8 +71,6 @@ export const AwarenessContentView: React.FC<AwarenessContentViewProps> = ({
       interval = setInterval(() => {
         setAudioProgress(p => p + 1);
       }, 1000);
-    } else {
-      setAudioProgress(0);
     }
     return () => clearInterval(interval);
   }, [isPlayingAudio]);
@@ -366,17 +365,19 @@ export const AwarenessContentView: React.FC<AwarenessContentViewProps> = ({
   };
 
   const handleToggleAudio = async () => {
-    if (isPlayingAudio) {
+    if (isPlayingAudio || isFetchingAudio) {
       if (currentAudioRef.current) {
         currentAudioRef.current.pause();
       }
       setIsPlayingAudio(false);
+      setIsFetchingAudio(false);
       audioQueueRef.current = [];
       return;
     }
 
     if (!activeResult) return;
-    setIsPlayingAudio(true);
+    setIsFetchingAudio(true);
+    setAudioProgress(0);
 
     try {
       const res = await fetch('http://localhost:5000/api/awareness-content/tts', {
@@ -395,10 +396,13 @@ export const AwarenessContentView: React.FC<AwarenessContentViewProps> = ({
       const chunks = data.chunks.map((c: any) => `data:audio/mp3;base64,${c.base64}`);
       audioQueueRef.current = chunks;
       
+      setIsFetchingAudio(false);
+      setIsPlayingAudio(true);
       playNextAudioChunk();
     } catch (e: any) {
       console.error(e);
       showToast('Error generating audio: ' + e.message);
+      setIsFetchingAudio(false);
       setIsPlayingAudio(false);
     }
   };
@@ -406,6 +410,12 @@ export const AwarenessContentView: React.FC<AwarenessContentViewProps> = ({
   const playNextAudioChunk = () => {
     if (audioQueueRef.current.length === 0) {
       setIsPlayingAudio(false);
+      // Snap progress to 100% so the UI waveform and timer complete visually
+      if (activeResult) {
+        const textLength = activeResult.generatedText?.length || 0;
+        const calculatedDuration = Math.max(5, Math.ceil(textLength / 12));
+        setAudioProgress(calculatedDuration);
+      }
       return;
     }
     const nextChunk = audioQueueRef.current.shift();
@@ -747,7 +757,11 @@ export const AwarenessContentView: React.FC<AwarenessContentViewProps> = ({
                 )}
 
                 {/* 3. AUDIO CLIP FORMAT PREVIEW */}
-                {activeResult.contentType === 'Audio Clip' && (
+                {activeResult.contentType === 'Audio Clip' && (() => {
+                  const calculatedDuration = Math.max(5, Math.ceil((activeResult.generatedText?.length || 0) / 12));
+                  const durationStr = `${Math.floor(calculatedDuration / 60)}:${(calculatedDuration % 60).toString().padStart(2, '0')}`;
+                  
+                  return (
                   <div className="bg-slate-900 text-white rounded-2xl p-6 space-y-4 shadow-lg border border-slate-800">
                     <div className="flex items-center justify-between border-b border-slate-800 pb-3">
                       <div className="flex items-center gap-2 text-xs font-bold text-purple-400">
@@ -755,7 +769,7 @@ export const AwarenessContentView: React.FC<AwarenessContentViewProps> = ({
                         <span>Voice Note Broadcast (Audio Clip)</span>
                       </div>
                       <span className="text-xs font-mono text-slate-400 font-bold">
-                        {activeResult.audioDuration || '0:42'}
+                        {durationStr}
                       </span>
                     </div>
 
@@ -765,29 +779,23 @@ export const AwarenessContentView: React.FC<AwarenessContentViewProps> = ({
                         type="button"
                         onClick={handleToggleAudio}
                         className={`w-12 h-12 rounded-full flex items-center justify-center shrink-0 cursor-pointer transition-all ${
-                          isPlayingAudio ? 'bg-purple-500 text-white animate-pulse' : 'bg-purple-600 hover:bg-purple-700 text-white shadow-md'
+                          isPlayingAudio ? 'bg-purple-500 text-white animate-pulse' : isFetchingAudio ? 'bg-purple-400 text-white animate-bounce' : 'bg-purple-600 hover:bg-purple-700 text-white shadow-md'
                         }`}
                       >
-                        {isPlayingAudio ? <Pause className="w-6 h-6 fill-white" /> : <Play className="w-6 h-6 fill-white ml-0.5" />}
+                        {isPlayingAudio || isFetchingAudio ? <Pause className="w-6 h-6 fill-white" /> : <Play className="w-6 h-6 fill-white ml-0.5" />}
                       </button>
 
                       {/* Waveform Bar Simulation */}
                       <div className="flex-1 space-y-1.5">
                         <div className="flex items-center gap-1 h-8">
                           {(() => {
-                            const parseDuration = (dur: string) => {
-                              if (!dur) return 45;
-                              const parts = dur.split(':');
-                              if (parts.length === 2) return parseInt(parts[0]) * 60 + parseInt(parts[1]);
-                              return 45;
-                            };
-                            const totalSeconds = parseDuration(activeResult.audioDuration || '0:42');
+                            const totalSeconds = calculatedDuration;
                             const progressPercent = Math.min((audioProgress / totalSeconds) * 100, 100);
                             const segments = [30, 50, 80, 40, 90, 60, 100, 70, 40, 80, 50, 90, 30, 70, 60, 40, 80, 100, 50, 30, 60];
                             
                             return segments.map((h, i) => {
                               const segmentPercent = (i / segments.length) * 100;
-                              const isFilled = isPlayingAudio && progressPercent >= segmentPercent;
+                              const isFilled = progressPercent > 0 && progressPercent >= segmentPercent;
                               return (
                                 <div 
                                   key={i} 
@@ -801,8 +809,15 @@ export const AwarenessContentView: React.FC<AwarenessContentViewProps> = ({
                           })()}
                         </div>
                         <div className="flex items-center justify-between text-[10px] text-slate-400 font-mono font-bold">
-                          <span>{isPlayingAudio ? `${Math.floor(audioProgress / 60)}:${(audioProgress % 60).toString().padStart(2, '0')}` : '0:00'}</span>
-                          <span>{activeResult.audioDuration || '0:42'}</span>
+                          {(() => {
+                            const displaySecs = Math.min(audioProgress, calculatedDuration);
+                            return (
+                              <>
+                                <span>{`${Math.floor(displaySecs / 60)}:${(displaySecs % 60).toString().padStart(2, '0')}`}</span>
+                                <span>{durationStr}</span>
+                              </>
+                            );
+                          })()}
                         </div>
                       </div>
                     </div>
@@ -815,7 +830,8 @@ export const AwarenessContentView: React.FC<AwarenessContentViewProps> = ({
                       </p>
                     </div>
                   </div>
-                )}
+                  );
+                })()}
 
 
               </div>

@@ -40,7 +40,7 @@ function AppContent() {
   const { t } = useLanguage();
   const { role, primaryTabs, allRoles, userProfile, isAuthenticated, isLoadingAuth } = useRole();
   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth >= 1024);
   const [selectedRole, setSelectedRole] = useState<Role | null>(null);
 
   React.useEffect(() => {
@@ -102,7 +102,9 @@ function AppContent() {
                   ? (p.conditions.startsWith('[') ? JSON.parse(p.conditions) : [p.conditions]) 
                   : []),
             address: p.address,
-            emergencyContact: p.emergencyContact
+            emergencyContact: p.emergencyContact,
+            ashaWorkerId: p.ashaWorkerId,
+            assignedAsha: p.assignedAsha
           }));
           setPatients(mappedPatients);
         } else {
@@ -178,8 +180,7 @@ function AppContent() {
                 bp: parsedVitals.bp,
                 pulse: parsedVitals.pulse,
                 temp: parsedVitals.temp,
-                weight: parsedVitals.weight,
-                spO2: parsedVitals.spO2
+                weight: parsedVitals.weight
               } : undefined;
             })(),
             doctorNotes: r.notes || r.doctorNotes,
@@ -382,6 +383,8 @@ function AppContent() {
           email: newPatient.email,
           address: newPatient.address || '',
           emergencyContact: newPatient.emergencyContact || '',
+          conditions: newPatient.conditions,
+          vitals: newPatient.vitals,
           lastVisit: new Date().toISOString()
         })
       });
@@ -455,7 +458,7 @@ function AppContent() {
       conditions: Array.isArray(savedPatient.conditions) 
         ? savedPatient.conditions 
         : (typeof savedPatient.conditions === 'string' 
-            ? (savedPatient.conditions.startsWith('[') ? JSON.parse(savedPatient.conditions) : [savedPatient.conditions]) 
+            ? ((savedPatient.conditions as any).startsWith('[') ? JSON.parse(savedPatient.conditions as any) : [savedPatient.conditions])
             : []),
     };
 
@@ -482,12 +485,29 @@ function AppContent() {
           phone: updatedPatient.phone,
           email: updatedPatient.email,
           address: updatedPatient.address,
-          emergencyContact: updatedPatient.emergencyContact
+          emergencyContact: updatedPatient.emergencyContact,
+          conditions: updatedPatient.conditions,
+          vitals: updatedPatient.vitals
         })
       });
       const json = await res.json();
       if (json.success) {
         setPatients(prev => prev.map(p => p.id === updatedPatient.id ? { ...p, ...updatedPatient } : p));
+        
+        if (json.healthRecord) {
+          const completeRecord: HealthRecord = {
+            ...json.healthRecord,
+            id: String(json.healthRecord.id),
+            patientName: updatedPatient.name,
+            patientAvatar: DEFAULT_AVATAR,
+            age: updatedPatient.age,
+            gender: updatedPatient.gender,
+            village: updatedPatient.village,
+            summary: json.healthRecord.notes || 'Vitals updated via patient profile',
+            needsDoctorReview: true
+          };
+          setHealthRecords(prev => [completeRecord, ...prev]);
+        }
       } else {
         alert("Failed to update patient: " + json.error);
       }
@@ -811,8 +831,7 @@ function AppContent() {
               bp: patient.vitals.bp,
               pulse: patient.vitals.pulse,
               temp: patient.vitals.temp,
-              weight: patient.vitals.weight,
-              spO2: 98
+              weight: patient.vitals.weight
             } : undefined
           };
           setConsultations(prev => [newCons, ...prev]);
@@ -864,7 +883,7 @@ function AppContent() {
       />
 
       {/* Main Content Area (offset by sidebar width on desktop) */}
-      <div className="lg:pl-72 flex-1 flex flex-col min-w-0">
+      <div className={`${sidebarOpen ? 'lg:pl-72' : ''} flex-1 flex flex-col min-w-0 transition-all duration-300 ease-in-out`}>
         {/* Top Navbar */}
         <Navbar
           onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}

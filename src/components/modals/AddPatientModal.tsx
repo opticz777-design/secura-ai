@@ -33,6 +33,10 @@ export const AddPatientModal: React.FC<AddPatientModalProps> = ({
   const [emergencyContact, setEmergencyContact] = useState('');
   const [email, setEmail] = useState('');
   const [conditionsStr, setConditionsStr] = useState('Routine Health Check');
+  const [bp, setBp] = useState('');
+  const [temp, setTemp] = useState('');
+  const [pulse, setPulse] = useState<number | ''>('');
+  const [weight, setWeight] = useState<number | ''>('');
   const [isListening, setIsListening] = useState(false);
   const [voiceToast, setVoiceToast] = useState('');
 
@@ -48,6 +52,10 @@ export const AddPatientModal: React.FC<AddPatientModalProps> = ({
         setEmergencyContact(patientToEdit.emergencyContact || '');
         setEmail(patientToEdit.email || '');
         setConditionsStr(patientToEdit.conditions?.join(', ') || '');
+        setBp(patientToEdit.vitals?.bp || '');
+        setTemp(patientToEdit.vitals?.temp || '');
+        setPulse(patientToEdit.vitals?.pulse || '');
+        setWeight(patientToEdit.vitals?.weight || '');
       } else {
         setName('');
         setAge(28);
@@ -58,6 +66,10 @@ export const AddPatientModal: React.FC<AddPatientModalProps> = ({
         setEmergencyContact('');
         setEmail('');
         setConditionsStr('Routine Health Check');
+        setBp('');
+        setTemp('');
+        setPulse('');
+        setWeight('');
       }
     }
   }, [isOpen, patientToEdit]);
@@ -81,6 +93,10 @@ export const AddPatientModal: React.FC<AddPatientModalProps> = ({
         setEmergencyContact('Khadar Beevi (Mother) - +91 98321 88222');
         setEmail('');
         setConditionsStr('Antenatal Care Trimester 1, Hemoglobin check');
+        setBp('110/70');
+        setTemp('98.6');
+        setPulse(82);
+        setWeight(65);
         setIsListening(false);
         setVoiceToast('Voice details prefilled successfully!');
         setTimeout(() => setVoiceToast(''), 3000);
@@ -114,7 +130,13 @@ export const AddPatientModal: React.FC<AddPatientModalProps> = ({
         address,
         emergencyContact,
         email: email || undefined,
-        conditions: conditionsStr.split(',').map(s => s.trim()).filter(Boolean)
+        conditions: conditionsStr.split(',').map(s => s.trim()).filter(Boolean),
+        vitals: (bp || pulse || temp || weight) ? {
+          bp,
+          pulse: Number(pulse) || 0,
+          temp,
+          weight: Number(weight) || 0
+        } : undefined
       });
       onClose();
       return;
@@ -138,7 +160,12 @@ export const AddPatientModal: React.FC<AddPatientModalProps> = ({
       assignedAsha: 'Anita Devi (ASHA Sector 1)',
       abhaId: `91-${Math.floor(1000 + Math.random()*9000)}-${Math.floor(1000 + Math.random()*9000)}-${Math.floor(1000 + Math.random()*9000)}`,
       conditions: conditionsStr.split(',').map(s => s.trim()),
-      vitals: undefined,
+      vitals: (bp || pulse || temp || weight) ? {
+        bp,
+        pulse: Number(pulse) || 0,
+        temp,
+        weight: Number(weight) || 0
+      } : undefined,
       vitalsHistory: [],
       visitHistory: [
         { id: `VH-${Date.now()}`, date: 'Today', type: 'Registration Visit', symptoms: conditionsStr, doctorName: 'Anita Devi (ASHA)', notes: 'New patient registered in portal.' }
@@ -315,6 +342,29 @@ export const AddPatientModal: React.FC<AddPatientModalProps> = ({
               onChange={(e) => setConditionsStr(e.target.value)}
               className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-semibold text-slate-900 focus:ring-2 focus:ring-teal-600 focus:outline-none"
             />
+          </div>
+
+          {/* Vitals Section */}
+          <div>
+            <label className="block font-bold text-slate-700 mb-2">Vitals (Optional)</label>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase">BP</label>
+                <input type="text" placeholder="120/80" value={bp} onChange={e => setBp(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 font-semibold text-slate-900 focus:ring-2 focus:ring-teal-600 focus:outline-none" />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase">Temp (°F)</label>
+                <input type="text" placeholder="98.6" value={temp} onChange={e => setTemp(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 font-semibold text-slate-900 focus:ring-2 focus:ring-teal-600 focus:outline-none" />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase">Pulse</label>
+                <input type="number" placeholder="72" value={pulse} onChange={e => setPulse(e.target.value === '' ? '' : Number(e.target.value))} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 font-semibold text-slate-900 focus:ring-2 focus:ring-teal-600 focus:outline-none" />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase">Weight (kg)</label>
+                <input type="number" placeholder="65" value={weight} onChange={e => setWeight(e.target.value === '' ? '' : Number(e.target.value))} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 font-semibold text-slate-900 focus:ring-2 focus:ring-teal-600 focus:outline-none" />
+              </div>
+            </div>
           </div>
 
           {/* Action Buttons */}

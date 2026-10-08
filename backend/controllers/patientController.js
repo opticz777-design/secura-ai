@@ -77,8 +77,8 @@ exports.create = async (req, res) => {
       visitType: 'Routine Checkup',
       date: new Date(),
       recordedBy: 'ASHA Worker',
-      symptoms: 'None',
-      vitals: {},
+      symptoms: (req.body.conditions || []).join(', ') || 'None',
+      vitals: req.body.vitals || {},
       notes: 'Patient registered',
       status: 'Pending Review',
       ashaWorkerId
@@ -97,7 +97,23 @@ exports.update = async (req, res) => {
     const data = await Patient.findByPk(req.params.id);
     if (!data) return res.status(404).json({ success: false, error: 'Not found' });
     await data.update(req.body);
-    res.json({ success: true, data });
+
+    let record = null;
+    if (req.body.vitals && Object.keys(req.body.vitals).length > 0) {
+      record = await HealthRecord.create({
+        patientId: data.id,
+        visitType: 'Profile Update',
+        date: new Date(),
+        recordedBy: req.user ? (req.user.role || 'ASHA Worker') : 'ASHA Worker',
+        symptoms: (req.body.conditions || data.conditions || []).join(', ') || 'None',
+        vitals: req.body.vitals,
+        notes: 'Vitals updated via patient profile',
+        status: 'Pending Review',
+        ashaWorkerId: data.ashaWorkerId
+      });
+    }
+
+    res.json({ success: true, data, healthRecord: record });
   } catch (error) {
     res.status(400).json({ success: false, error: error.message });
   }

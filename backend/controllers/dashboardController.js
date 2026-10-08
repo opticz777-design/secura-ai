@@ -103,6 +103,30 @@ exports.getDashboardStats = async (req, res) => {
       const activeCases = await Patient.count({ where: { status: { [Op.in]: ['Critical', 'Follow Up'] } } });
       const highRiskCases = await Patient.count({ where: { status: 'Critical' } });
       
+      const ashaWorkersList = await User.findAll({
+        where: { role: 'ASHA_WORKER' },
+        attributes: ['id', 'username', 'displayName', 'healthCentre', 'ashaWorkerId']
+      });
+
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+
+      const patientsVisitedToday = await Consultation.count({
+        where: {
+          submittedAt: { [Op.gte]: todayStart }
+        }
+      });
+      
+      const recordsCollectedToday = await HealthRecord.count({
+        where: {
+          createdAt: { [Op.gte]: todayStart } // Or use another field if createdAt isn't available, but standard Sequelize has it
+        }
+      }).catch(() => 0); // fallback if it fails
+
+      const followUpsPending = await Patient.count({
+        where: { status: 'Follow Up' }
+      });
+
       return res.json({
         success: true,
         data: {
@@ -111,7 +135,11 @@ exports.getDashboardStats = async (req, res) => {
           pendingClaims,
           activeOutbreakAlerts,
           activeCases,
-          highRiskCases
+          highRiskCases,
+          ashaWorkersList,
+          patientsVisitedToday,
+          recordsCollectedToday,
+          followUpsPending
         }
       });
     }

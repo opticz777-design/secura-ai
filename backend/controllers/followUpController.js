@@ -63,6 +63,11 @@ exports.create = async (req, res) => {
       relatedEntityType: 'FollowUp'
     }, { transaction: t });
 
+    // Update patient status to 'Follow Up'
+    if (patient.status !== 'Follow Up') {
+      await patient.update({ status: 'Follow Up' }, { transaction: t });
+    }
+
     await t.commit();
     res.status(201).json({ success: true, data: followUp });
   } catch (error) {

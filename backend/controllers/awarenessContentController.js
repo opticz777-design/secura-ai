@@ -64,10 +64,10 @@ Format the response as JSON with the following structure:
   "generatedText": "The main body of the content",
   "bulletPoints": ["point 1", "point 2", "point 3"],
   "callToAction": "A short closing action statement",
-  "audioDuration": "0:45"
+  "audioDuration": "Estimate realistic duration based on text length (e.g. '0:15')"
 }
 Ensure the output is valid JSON.`;
-    const modelsToTry = ['gemini-2.5-flash', 'gemini-3.5-flash', 'gemini-3.7-flash', 'gemini-flash-latest'];
+    const modelsToTry = ['gemini-3.5-flash-lite', 'gemini-3.8-flash', 'gemini-2.5-flash', 'gemini-3.5-flash', 'gemini-3.7-flash', 'gemini-flash-latest'];
     let response;
     for (const model of modelsToTry) {
         try {

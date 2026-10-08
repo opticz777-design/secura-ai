@@ -13,8 +13,8 @@ export const HEALTH_CENTRES: HealthCentre[] = [
     distanceValue: 600
   },
   {
-    id: "pappinissery",
-    name: "Pappinissery",
+    id: "pappinisseri",
+    name: "Pappinisseri",
     distance: "3.4km",
     distanceValue: 3400
   },

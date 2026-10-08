@@ -27,9 +27,10 @@ import {
   ArrowUpRight,
   TrendingUp,
   SlidersHorizontal,
-  Eye
+  Eye,
+  CalendarPlus
 } from 'lucide-react';
-import { Patient, PatientStatus, VisitRecord, VitalRecord, PatientDocument } from '../../types';
+import { Patient, PatientStatus, VisitRecord, VitalRecord, PatientDocument, HealthRecord } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
 import { HEALTH_CENTRES } from '../../config/healthCentres';
 import { useRole, USERS_BY_ROLE } from '../../context/RoleContext';
@@ -567,19 +568,6 @@ export const PatientsView: React.FC<PatientsViewProps> = ({
                             <span>{t('common.view')}</span>
                           </button>
 
-                          {role === 'DOCTOR' && (
-                            <button
-                              onClick={() => {
-                                setSelectedPatient(patient);
-                                setIsPrescriptionModalOpen(true);
-                              }}
-                              className="flex items-center gap-1.5 bg-blue-50 hover:bg-blue-100 text-blue-800 font-bold px-3 py-1.5 rounded-xl border border-blue-200/80 text-xs transition-colors cursor-pointer"
-                            >
-                              <FileText className="w-3.5 h-3.5 text-blue-600" />
-                              <span>{t('patients.writePrescription', 'Write Prescription')}</span>
-                            </button>
-                          )}
-
                           {role === 'ASHA_WORKER' && (
                             <div className="relative">
                               <button
@@ -793,7 +781,7 @@ export const PatientsView: React.FC<PatientsViewProps> = ({
               </div>
 
               {/* Navigation Tabs */}
-              <div className="flex items-center gap-1 mt-6 border-b border-slate-200">
+              <div className="flex items-center gap-1 mt-6 border-b border-slate-200 overflow-x-auto">
                 {(['Overview', 'Visit History', 'Vitals', 'Documents'] as const).map((tab) => {
                   let tabLabel = tab;
                   if (tab === 'Overview') tabLabel = t('patients.overview') as any;
@@ -1133,22 +1121,22 @@ export const PatientsView: React.FC<PatientsViewProps> = ({
                   </div>
                 </div>
               )}
-
             </div>
 
             {/* Panel Bottom Action Buttons */}
             <div className="p-4 bg-white border-t border-slate-200 shrink-0 flex flex-wrap items-center justify-end gap-2.5">
+              <button
+                onClick={() => {
+                  if (selectedPatient) setIsFollowUpModalOpen(true);
+                }}
+                className="px-4 py-2.5 bg-blue-50 hover:bg-blue-100 text-blue-800 font-bold border border-blue-200 rounded-xl text-xs transition-colors cursor-pointer flex items-center gap-1.5"
+              >
+                <CalendarPlus className="w-3.5 h-3.5 text-blue-600" />
+                <span>{t('patients.scheduleFollowUp', 'Schedule Follow-Up')}</span>
+              </button>
+
               {role === 'ASHA_WORKER' && (
                 <>
-                  <button
-                    onClick={() => {
-                      if (selectedPatient) setIsFollowUpModalOpen(true);
-                    }}
-                    className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold rounded-xl text-xs transition-colors cursor-pointer"
-                  >
-                    {t('patients.scheduleFollowUp', 'Schedule Follow-Up')}
-                  </button>
-
                   <button
                     onClick={() => {
                       if (selectedPatient) setIsAddVisitModalOpen(true);
@@ -1168,15 +1156,6 @@ export const PatientsView: React.FC<PatientsViewProps> = ({
                     <span>{t('patients.startConsultation', 'Start Consultation')}</span>
                   </button>
                 </>
-              )}
-              {role === 'DOCTOR' && (
-                <button
-                  onClick={() => setIsPrescriptionModalOpen(true)}
-                  className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs shadow-md flex items-center gap-2 cursor-pointer transition-colors active:scale-98"
-                >
-                  <FileText className="w-4 h-4" />
-                  <span>{t('patients.writePrescription', 'Write Prescription')}</span>
-                </button>
               )}
             </div>
           </div>

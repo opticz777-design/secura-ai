@@ -28,7 +28,8 @@ import {
   Info,
   MapPin,
   Heart,
-  Phone
+  Phone,
+  Download
 } from 'lucide-react';
 import { Appointment, Patient, Consultation, HealthRecord } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
@@ -81,7 +82,35 @@ export const TeleconsultationView: React.FC<TeleconsultationViewProps> = ({
   const [statusFilter, setStatusFilter] = useState<string>('All');
 
   // Case detail tab state
-  const [detailTab, setDetailTab] = useState<'case-info' | 'vitals-history'>('case-info');
+  const [detailTab, setDetailTab] = useState<'case-info' | 'vitals-history' | 'documents'>('case-info');
+
+  // Documents state
+  const [patientDocuments, setPatientDocuments] = useState<any[]>([]);
+  const [isLoadingDocuments, setIsLoadingDocuments] = useState(false);
+
+  // Fetch documents when tab changes to Documents
+  useEffect(() => {
+    if (selectedConsultation && detailTab === 'documents') {
+      fetchDocuments(selectedConsultation.patientId);
+    }
+  }, [selectedConsultation?.id, detailTab]);
+
+  const fetchDocuments = async (patientId: string) => {
+    setIsLoadingDocuments(true);
+    try {
+      const baseUrl = (import.meta as any).env.VITE_API_BASE_URL || 'http://localhost:5000/api';
+      const res = await apiFetch(`${baseUrl}/patients/${patientId}/documents`);
+      if (res.ok) {
+        const data = await res.json();
+        setPatientDocuments(data.data || []);
+      }
+    } catch (error) {
+      console.error('Error fetching documents', error);
+    } finally {
+      setIsLoadingDocuments(false);
+    }
+  };
+
 
   // Doctor advice & AI simplification state
   const [doctorNotesInput, setDoctorNotesInput] = useState<string>('');
@@ -222,15 +251,49 @@ export const TeleconsultationView: React.FC<TeleconsultationViewProps> = ({
       list = list.filter(c => c.status === statusFilter);
     }
 
-    if (sortBy === 'urgent') {
-      list.sort((a, b) => {
-        if (a.priority === 'Urgent' && b.priority !== 'Urgent') return -1;
-        if (a.priority !== 'Urgent' && b.priority === 'Urgent') return 1;
-        return 0;
-      });
-    } else if (sortBy === 'newest') {
-      list.reverse();
-    }
+    const getStatusRank = (status: string) => {
+      const s = (status || '').toLowerCase();
+      if (s.includes('waiting') || s.includes('pending')) return 1;
+      if (s.includes('progress')) return 2;
+      return 3;
+    };
+
+    const getPriorityRank = (priority: string) => {
+      const p = (priority || '').toLowerCase();
+      if (p.includes('urgent') || p.includes('emergency')) return 1;
+      if (p.includes('high')) return 2;
+      return 3;
+    };
+
+    list.sort((a, b) => {
+      const rankA = getStatusRank(a.status);
+      const rankB = getStatusRank(b.status);
+      
+      // 1. Always prioritize actionable statuses
+      if (rankA !== rankB) {
+        return rankA - rankB;
+      }
+      
+      // 2. Sort by priority if applicable
+      if (sortBy === 'urgent') {
+        const prioA = getPriorityRank(a.priority);
+        const prioB = getPriorityRank(b.priority);
+        
+        if (prioA !== prioB) {
+          return prioA - prioB;
+        }
+      }
+      
+      // 3. Sort by time
+      const timeA = new Date(a.createdAt || 0).getTime();
+      const timeB = new Date(b.createdAt || 0).getTime();
+      
+      if (sortBy === 'newest') {
+        return timeB - timeA; // Newer first
+      }
+      
+      return timeA - timeB; // Older first (FIFO)
+    });
 
     return list;
   }, [consultations, statusFilter, sortBy]);
@@ -567,7 +630,17 @@ export const TeleconsultationView: React.FC<TeleconsultationViewProps> = ({
                         : 'text-slate-500 hover:text-slate-800'
                     }`}
                   >
-                    {t('tele.tabVitalsHistory')}
+                    {t('tele.tabVitalsHistory', 'Vitals & History')}
+                  </button>
+                  <button
+                    onClick={() => setDetailTab('documents')}
+                    className={`px-4 py-2.5 text-xs font-bold transition-all cursor-pointer relative ${
+                      detailTab === 'documents'
+                        ? 'text-teal-700 border-b-2 border-teal-600 font-black'
+                        : 'text-slate-500 hover:text-slate-800'
+                    }`}
+                  >
+                    {t('tele.tabDocuments', 'Documents')}
                   </button>
                 </div>
 
@@ -648,10 +721,6 @@ export const TeleconsultationView: React.FC<TeleconsultationViewProps> = ({
                               <strong className="text-sm font-black text-amber-900">{latestVitals?.pulse || <span className="text-xs text-slate-400 font-semibold">Not recorded</span>}</strong>
                             </div>
 
-                            <div className="p-3 bg-blue-50 rounded-xl border border-blue-200 text-center">
-                              <span className="text-[10px] text-blue-700 font-bold uppercase block">SpO2 Level</span>
-                              <strong className="text-sm font-black text-blue-900">{latestVitals?.spO2 || <span className="text-xs text-slate-400 font-semibold">Not recorded</span>}</strong>
-                            </div>
 
                             <div className="p-3 bg-purple-50 rounded-xl border border-purple-200 text-center">
                               <span className="text-[10px] text-purple-700 font-bold uppercase block">Temperature</span>
@@ -744,6 +813,47 @@ export const TeleconsultationView: React.FC<TeleconsultationViewProps> = ({
                         </div>
                       </>
                     )}
+                  </div>
+                )}
+
+                {/* TAB 3: DOCUMENTS */}
+                {detailTab === 'documents' && (
+                  <div className="space-y-4 animate-fade-in">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Uploaded Records & Prescriptions</h3>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {isLoadingDocuments ? (
+                        <div className="col-span-full text-sm text-slate-500 font-medium py-2">Loading documents...</div>
+                      ) : patientDocuments.length === 0 ? (
+                        <div className="col-span-full text-sm text-slate-500 font-medium py-2">No documents uploaded yet.</div>
+                      ) : patientDocuments.map((doc) => (
+                        <div key={doc.id} className="p-4 bg-slate-50 rounded-2xl border border-slate-200/80 flex items-center justify-between gap-3 hover:border-teal-300 transition-all">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-teal-100 text-teal-800 font-bold text-xs flex items-center justify-center shrink-0">
+                              <FileText className="w-5 h-5" />
+                            </div>
+                            <div>
+                              <h4 className="font-bold text-slate-900 text-xs truncate max-w-[150px]">{doc.originalFileName}</h4>
+                              <p className="text-[10px] text-slate-500 font-medium">{doc.documentType} • {(doc.fileSize / 1024).toFixed(1)} KB</p>
+                              {doc.description && <p className="text-[9px] text-slate-400 mt-0.5 truncate max-w-[150px]">{doc.description}</p>}
+                            </div>
+                          </div>
+
+                          <button
+                            onClick={() => {
+                              const baseUrl = (import.meta as any).env.VITE_API_BASE_URL || 'http://localhost:5000/api';
+                              window.open(`${baseUrl}/patients/${selectedConsultation.patientId}/documents/${doc.id}`, '_blank');
+                            }}
+                            className="p-2 text-slate-600 hover:text-teal-700 hover:bg-slate-200 rounded-xl transition-colors cursor-pointer"
+                            title="View / Download Document"
+                          >
+                            <Download className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
 

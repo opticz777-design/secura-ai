@@ -85,7 +85,7 @@ If pulse was not mentioned -> pulse = null.
 
 Return valid structured JSON only.`;
 
-    const modelsToTry = ['gemini-3.6-flash', 'gemini-flash-latest'];
+    const modelsToTry = ['gemini-3.5-flash-lite', 'gemini-3.8-flash', 'gemini-3.6-flash', 'gemini-flash-latest'];
     let response;
     for (const model of modelsToTry) {
         try {
@@ -195,8 +195,7 @@ exports.saveEntry = async (req, res) => {
       bp: extractedData.bloodPressure || null,
       pulse: extractedData.pulse || null,
       temp: extractedData.temperature || null,
-      weight: extractedData.weight || null,
-      spO2: null
+      weight: extractedData.weight || null
     };
 
     if (!patient) {

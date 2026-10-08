@@ -21,7 +21,6 @@ export const AddVisitModal: React.FC<AddVisitModalProps> = ({
   const [newPulse, setNewPulse] = useState<string>('');
   const [newTemp, setNewTemp] = useState<string>('');
   const [newWeight, setNewWeight] = useState<string>('');
-  const [newSpO2, setNewSpO2] = useState<string>('');
   const [newNeedsDoctorReview, setNewNeedsDoctorReview] = useState<boolean>(false);
   const [newDoctorNotes, setNewDoctorNotes] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -49,8 +48,7 @@ export const AddVisitModal: React.FC<AddVisitModalProps> = ({
         bp: newBp || undefined,
         pulse: newPulse ? Number(newPulse) : undefined,
         temp: newTemp || undefined,
-        weight: newWeight ? Number(newWeight) : undefined,
-        spO2: newSpO2 ? Number(newSpO2) : undefined
+        weight: newWeight ? Number(newWeight) : undefined
       },
       doctorNotes: newDoctorNotes || undefined
     };
@@ -178,15 +176,6 @@ export const AddVisitModal: React.FC<AddVisitModalProps> = ({
                   type="number"
                   value={newWeight}
                   onChange={(e) => setNewWeight(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs font-bold text-slate-800 text-center focus:outline-none focus:ring-2 focus:ring-teal-600"
-                />
-              </div>
-              <div>
-                <span className="text-[10px] text-slate-400 font-bold block">SpO2 (%)</span>
-                <input
-                  type="number"
-                  value={newSpO2}
-                  onChange={(e) => setNewSpO2(e.target.value)}
                   className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs font-bold text-slate-800 text-center focus:outline-none focus:ring-2 focus:ring-teal-600"
                 />
               </div>

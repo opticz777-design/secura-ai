@@ -61,6 +61,8 @@ export const SupervisorDashboard: React.FC<SupervisorDashboardProps> = ({
       }))
     : [];
 
+  // Village Health Overview removed
+
   const handleApproveClaim = (claimId: string) => {
     const claim = incentiveClaims.find(c => c.id === claimId);
     if (claim && onUpdateIncentiveClaim) {
@@ -184,22 +186,98 @@ export const SupervisorDashboard: React.FC<SupervisorDashboardProps> = ({
 
       {/* 3. MAIN TWO-COLUMN SECTION */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* LEFT COLUMN (7 cols): Village Health Overview & Incentive Claims Approval */}
+        {/* LEFT COLUMN (7 cols): ASHA Workforce & Incentive Claims Approval */}
         <div className="lg:col-span-7 space-y-6">
-          {/* Village Health Overview Card */}
+          {/* ASHA Workforce & Field Activity Card */}
           <div className="bg-white rounded-2xl border border-slate-200/80 shadow-2xs p-5">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <Building2 className="w-5 h-5 text-teal-700" />
-                <h3 className="text-base font-bold text-slate-900">
-                  {t('supervisorDash.villageHealthOverview', 'Village Health Overview')}
-                </h3>
+            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-5">
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <Users className="w-5 h-5 text-teal-700" />
+                  <h3 className="text-base font-bold text-slate-900">
+                    ASHA Workforce & Field Activity
+                  </h3>
+                </div>
+                <p className="text-xs text-slate-500 font-medium">
+                  Monitor field activity, patient coverage and pending work across your assigned region.
+                </p>
               </div>
-              <span className="text-xs font-semibold text-slate-400">Sub-Centers</span>
+
+              {/* Today's Field Activity Summary */}
+              <div className="bg-slate-50 border border-slate-100 rounded-xl p-3 shrink-0">
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 text-center">Today's Field Activity</p>
+                <div className="flex items-center gap-4 text-center">
+                  <div>
+                    <p className="text-lg font-black text-slate-800">{dashboardStats?.patientsVisitedToday || 0}</p>
+                    <p className="text-[9px] font-semibold text-slate-400 uppercase">Patients Visited</p>
+                  </div>
+                  <div className="w-px h-6 bg-slate-200"></div>
+                  <div>
+                    <p className="text-lg font-black text-slate-800">{dashboardStats?.recordsCollectedToday || 0}</p>
+                    <p className="text-[9px] font-semibold text-slate-400 uppercase">Records Collected</p>
+                  </div>
+                  <div className="w-px h-6 bg-slate-200"></div>
+                  <div>
+                    <p className="text-lg font-black text-slate-800">{dashboardStats?.followUpsPending || 0}</p>
+                    <p className="text-[9px] font-semibold text-slate-400 uppercase">Follow-ups</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end mb-3">
+              <button 
+                onClick={() => onNavigate('patients')}
+                className="text-xs font-bold text-teal-700 hover:text-teal-900 hover:underline flex items-center gap-1 cursor-pointer"
+              >
+                <span>View ASHA Activity →</span>
+              </button>
             </div>
 
             <div className="space-y-3">
-              <div className="text-center py-4 text-xs text-slate-500 font-medium">Data unavailable</div>
+              {dashboardStats?.ashaWorkersList?.length > 0 ? (
+                dashboardStats.ashaWorkersList.map((worker: any) => {
+                  const patientsCount = patients.filter(p => p.assignedAsha === worker.displayName || p.ashaWorkerId === worker.ashaWorkerId).length;
+                  const pendingCount = incentiveClaims.filter(c => c.ashaWorkerId === worker.ashaWorkerId && c.status === 'Pending').length;
+                  
+                  return (
+                  <div key={worker.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 rounded-xl border border-slate-100 hover:bg-slate-50 transition-colors gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-teal-100 text-teal-800 flex items-center justify-center font-bold text-sm shrink-0 uppercase">
+                        {worker.displayName ? worker.displayName.substring(0, 2) : 'AW'}
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h4 className="text-sm font-bold text-slate-800">{worker.displayName || worker.username}</h4>
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Active
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-500 font-medium mt-0.5">PHC {worker.healthCentre || 'Chirakkal'}</p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-6 sm:gap-8 justify-between sm:justify-end pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100 mt-2 sm:mt-0">
+                      <div className="text-center sm:text-right">
+                        <p className="text-sm font-bold text-slate-700">{patientsCount}</p>
+                        <p className="text-[10px] text-slate-400 font-medium">Patients</p>
+                      </div>
+                      <div className="text-center sm:text-right">
+                        <p className="text-sm font-bold text-amber-600">{pendingCount}</p>
+                        <p className="text-[10px] text-slate-400 font-medium">Pending</p>
+                      </div>
+                      <div className="text-center sm:text-right">
+                        <p className="text-sm font-bold text-slate-700">Today</p>
+                        <p className="text-[10px] text-slate-400 font-medium">Last Active</p>
+                      </div>
+                    </div>
+                  </div>
+                )})
+              ) : (
+                <div className="text-center py-6 text-xs text-slate-500 font-medium border border-dashed border-slate-200 rounded-xl">
+                  No active ASHA workers found.
+                </div>
+              )}
             </div>
           </div>
 

@@ -706,8 +706,8 @@ export const VoiceInputView: React.FC<VoiceInputViewProps> = ({ onSavePatient })
                       />
                     </div>
 
-                    {/* Vitals (BP, Temp, Pulse) */}
-                    <div className="grid grid-cols-3 gap-2">
+                    {/* Vitals (BP, Temp, Pulse, Weight) */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                       <div>
                         <div className="flex items-center justify-between mb-1">
                           <label className="font-bold text-slate-600 text-[10px]">BP</label>
@@ -724,7 +724,7 @@ export const VoiceInputView: React.FC<VoiceInputViewProps> = ({ onSavePatient })
 
                       <div>
                         <div className="flex items-center justify-between mb-1">
-                          <label className="font-bold text-slate-600 text-[10px]">Temp</label>
+                          <label className="font-bold text-slate-600 text-[10px]">Temp (°F)</label>
                           <Sparkles className="w-3 h-3 text-teal-500" />
                         </div>
                         <input
@@ -747,6 +747,20 @@ export const VoiceInputView: React.FC<VoiceInputViewProps> = ({ onSavePatient })
                           onChange={(e) => setExtractedFields({ ...extractedFields, pulse: e.target.value })}
                           placeholder="---"
                           className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 font-bold text-blue-800 text-center text-xs placeholder:text-slate-300 placeholder:font-medium"
+                        />
+                      </div>
+
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="font-bold text-slate-600 text-[10px]">Weight (kg)</label>
+                          <Sparkles className="w-3 h-3 text-teal-500" />
+                        </div>
+                        <input
+                          type="text"
+                          value={extractedFields.weight}
+                          onChange={(e) => setExtractedFields({ ...extractedFields, weight: e.target.value })}
+                          placeholder="---"
+                          className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 font-bold text-emerald-800 text-center text-xs placeholder:text-slate-300 placeholder:font-medium"
                         />
                       </div>
                     </div>
@@ -868,30 +882,30 @@ export const VoiceInputView: React.FC<VoiceInputViewProps> = ({ onSavePatient })
             <ul className="space-y-3 text-xs font-medium text-teal-950">
               <li className="flex items-start gap-2.5 bg-white/80 p-3 rounded-2xl border border-teal-100">
                 <span className="w-2 h-2 rounded-full bg-teal-600 mt-1.5 shrink-0" />
-                <span>Speak clearly and mention one symptom at a time for maximum accuracy.</span>
+                <span>{t('voice.tip1', 'Speak clearly and mention one symptom at a time for maximum accuracy.')}</span>
               </li>
               <li className="flex items-start gap-2.5 bg-white/80 p-3 rounded-2xl border border-teal-100">
                 <span className="w-2 h-2 rounded-full bg-teal-600 mt-1.5 shrink-0" />
-                <span>Say the patient's full name, age, and village first to speed up identification.</span>
+                <span>{t('voice.tip2', "Say the patient's full name, age, and village first to speed up identification.")}</span>
               </li>
               <li className="flex items-start gap-2.5 bg-white/80 p-3 rounded-2xl border border-teal-100">
                 <span className="w-2 h-2 rounded-full bg-teal-600 mt-1.5 shrink-0" />
-                <span>State measured vitals directly (e.g. "BP 120 over 80, Temperature 100 degrees").</span>
+                <span>{t('voice.tip3', 'State measured vitals directly (e.g. "BP 120 over 80, Temperature 100 degrees").')}</span>
               </li>
             </ul>
           </div>
 
           {/* Quick AI Voice Stats Card */}
           <div className="bg-white rounded-3xl border border-slate-200/80 p-5 shadow-2xs space-y-3">
-            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">System Info</h3>
+            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">{t('voice.systemInfoTitle', 'System Info')}</h3>
             <div className="grid grid-cols-2 gap-3 text-center">
               <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100">
                 <span className="text-lg font-black text-slate-900 block">Gemini</span>
-                <span className="text-[10px] text-slate-500 font-bold">AI Engine</span>
+                <span className="text-[10px] text-slate-500 font-bold">{t('voice.aiEngine', 'AI Engine')}</span>
               </div>
               <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100">
                 <span className="text-lg font-black text-teal-700 block">Live</span>
-                <span className="text-[10px] text-slate-500 font-bold">API Status</span>
+                <span className="text-[10px] text-slate-500 font-bold">{t('voice.apiStatus', 'API Status')}</span>
               </div>
             </div>
           </div>
